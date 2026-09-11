@@ -1,4 +1,4 @@
-/* Bouman Exam Trainer - simple static app (no build step). */
+/* Bouman Exam Prep - simple static app (no build step). */
 (function(){
   const DB = window.EXAMDB || {};
   const courseOrder = ["ece637","ece641","ece60146"];
@@ -124,6 +124,8 @@
       const concepts = (window.CONCEPTS && window.CONCEPTS[key]) || cat.concepts;
       let body = `<div class="topic-body">`;
       body += `<h4>Why it is likely</h4><p class="evidence">${cat.evidence}</p>`;
+      const big = window.BIGPICTURE && window.BIGPICTURE[key];
+      if(big) body += `<h4>Big picture: why you are learning this</h4><div class="bigpicture">${big}</div>`;
       body += `<h4>Concepts to review</h4><ul class="concepts">${concepts.map(x=>`<li>${x}</li>`).join("")}</ul>`;
       body += `<h4>New practice problems <span class="hint">(written for this site; similar in style to past exams but not taken from them. Open the tutor guidance first, attempt the problem yourself, then check the solution.)</span></h4><div class="btn-row"><button type="button" class="show-all">Show all solutions</button><button type="button" class="hide-all">Hide all solutions</button></div>`;
       cat.problems.forEach((p,j)=> body += problemHTML(p,j,`${key}/${j}`));
