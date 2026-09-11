@@ -3,7 +3,8 @@
   const DB = window.EXAMDB || {};
   const courseOrder = ["ece637","ece641","ece60146"];
   const $ = (id)=>document.getElementById(id);
-  let state = {course:null, exam:null, view:"topics"};
+  let state = {course:null, exam:null, topic:null, view:"topics"};
+  let suppressHash = false;
 
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
@@ -19,6 +20,36 @@
     return {rising:"rising", stable:"stable", falling:"falling", new:"new topic"}[t] || t;
   }
 
+  /* ---------- URL hash routing: #course/exam/topic ---------- */
+  function writeHash(){
+    const parts = [state.course, state.exam, state.topic].filter(Boolean);
+    const h = parts.length ? "#"+parts.join("/") : "";
+    if (location.hash !== h){ suppressHash = true; history.replaceState(null, "", h || location.pathname); suppressHash = false; }
+  }
+  function readHash(){
+    const h = location.hash.replace(/^#/,"");
+    if(!h) return null;
+    const [course, exam, topic] = h.split("/");
+    if(!DB[course]) return null;
+    return {course, exam: exam && DB[course].exams[exam] ? exam : null, topic: topic || null};
+  }
+  function applyRoute(r){
+    if(!r){ return; }
+    state.course = r.course; state.exam = r.exam; state.topic = r.topic;
+    renderCourses(); renderExams();
+    $("exam-picker").hidden = false;
+    if(state.exam){ renderContent(false); if(state.topic) openTopic(state.topic, true); }
+    else { $("content").hidden = true; }
+  }
+  window.addEventListener("hashchange", ()=>{ if(!suppressHash) applyRoute(readHash()); });
+
+  function copyLink(hash, btn){
+    const url = location.origin + location.pathname + hash;
+    const done = ()=>{ const old = btn.textContent; btn.textContent = "copied"; setTimeout(()=>btn.textContent = old, 1200); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done, done); } else { done(); }
+  }
+
+  /* ---------- rendering ---------- */
   function renderCourses(){
     const box = $("courses"); box.innerHTML="";
     courseOrder.filter(k=>DB[k]).forEach(k=>{
@@ -26,7 +57,7 @@
       const b = document.createElement("button");
       b.className = "card" + (state.course===k?" active":"");
       b.innerHTML = `<div class="code">${esc(c.code)}</div><div class="title">${esc(c.title)}</div><div class="exams">${Object.values(c.exams).map(e=>esc(e.name)).join(" &middot; ")}</div>`;
-      b.onclick = ()=>{ state.course=k; state.exam=null; renderCourses(); renderExams(); $("content").hidden=true; $("exam-picker").hidden=false; $("exam-picker").scrollIntoView({behavior:"smooth",block:"start"}); };
+      b.onclick = ()=>{ state.course=k; state.exam=null; state.topic=null; writeHash(); renderCourses(); renderExams(); $("content").hidden=true; $("exam-picker").hidden=false; $("exam-picker").scrollIntoView({behavior:"smooth",block:"start"}); };
       box.appendChild(b);
     });
   }
@@ -37,14 +68,21 @@
     Object.values(c.exams).forEach(e=>{
       const b = document.createElement("button");
       b.textContent = e.name; if(state.exam===e.id) b.classList.add("active");
-      b.onclick = ()=>{ state.exam=e.id; renderExams(); renderContent(); };
+      b.onclick = ()=>{ state.exam=e.id; state.topic=null; writeHash(); renderExams(); renderContent(true); };
       box.appendChild(b);
     });
   }
 
-  function problemHTML(p, idx, prefix){
-    let h = `<div class="problem"><h5>${prefix?prefix+" ":""}Problem ${idx+1}. ${esc(p.title)} ${p.points?`<span class="pts">(${p.points} pt)</span>`:""}</h5>`;
+  function approachHTML(key){
+    const ap = window.APPROACH && window.APPROACH[key];
+    if(!ap) return "";
+    return `<div class="approach-wrap"><button class="reveal approach-btn" type="button">Show tutor guidance</button><div class="approach">${ap}</div></div>`;
+  }
+
+  function problemHTML(p, idx, key){
+    let h = `<div class="problem" data-key="${esc(key)}"><h5>Problem ${idx+1}. ${esc(p.title)} ${p.points?`<span class="pts">(${p.points} pt)</span>`:""}</h5>`;
     if(p.intro) h += `<div class="intro">${p.intro}</div>`;
+    h += approachHTML(key);
     p.parts.forEach((pt,i)=>{
       const lbl = String.fromCharCode(97+i)+")";
       h += `<div class="part"><p class="q"><span class="lbl">${lbl}</span>${pt.q}</p><button class="reveal" type="button">Show solution</button><div class="ans">${pt.a}</div></div>`;
@@ -54,31 +92,45 @@
   }
 
   function wireReveals(root){
-    root.querySelectorAll("button.reveal").forEach(b=>{
+    root.querySelectorAll("button.reveal:not(.approach-btn)").forEach(b=>{
       b.onclick = ()=>{ const part=b.closest(".part"); part.classList.toggle("show"); b.textContent = part.classList.contains("show")?"Hide solution":"Show solution"; };
+    });
+    root.querySelectorAll("button.approach-btn").forEach(b=>{
+      b.onclick = ()=>{ const w=b.closest(".approach-wrap"); w.classList.toggle("show"); b.textContent = w.classList.contains("show")?"Hide tutor guidance":"Show tutor guidance"; };
     });
   }
 
-  function renderContent(){
+  function openTopic(topicId, scroll){
+    const div = document.querySelector(`.topic[data-topic="${topicId}"]`);
+    if(!div) return;
+    if(!div.classList.contains("open")){ div.classList.add("open"); if(!div.dataset.rendered){ renderMath(div); div.dataset.rendered="1"; } }
+    if(scroll) setTimeout(()=>div.scrollIntoView({behavior:"smooth",block:"start"}), 50);
+  }
+
+  function renderContent(scroll){
     const c = DB[state.course]; const e = c.exams[state.exam];
     $("content").hidden=false;
     $("exam-title").textContent = `${c.code} — ${e.name}`;
     $("exam-meta").innerHTML = `${esc(c.title)} &middot; analyzed: ${esc(e.years)}${e.format?` &middot; typical format: ${esc(e.format)}`:""}`;
     $("exam-notes").innerHTML = e.notes || "";
+    const examHash = `#${state.course}/${state.exam}`;
+    $("exam-link").onclick = ()=>copyLink(examHash, $("exam-link"));
     // ranking
     const cats = [...e.categories].sort((a,b)=>b.prob-a.prob);
     const box = $("ranking"); box.innerHTML="";
     cats.forEach((cat,i)=>{
-      const div = document.createElement("div"); div.className="topic";
+      const key = `${state.course}/${state.exam}/${cat.id}`;
+      const div = document.createElement("div"); div.className="topic"; div.dataset.topic = cat.id; div.id = `topic-${cat.id}`;
+      const concepts = (window.CONCEPTS && window.CONCEPTS[key]) || cat.concepts;
       let body = `<div class="topic-body">`;
       body += `<h4>Why it is likely</h4><p class="evidence">${cat.evidence}</p>`;
-      const concepts = (window.CONCEPTS && window.CONCEPTS[`${state.course}/${state.exam}/${cat.id}`]) || cat.concepts;
       body += `<h4>Concepts to review</h4><ul class="concepts">${concepts.map(x=>`<li>${x}</li>`).join("")}</ul>`;
-      body += `<h4>New practice problems <span class="hint">(written for this site; similar in style to past exams but not taken from them)</span></h4><div class="btn-row"><button type="button" class="show-all">Show all solutions</button><button type="button" class="hide-all">Hide all solutions</button></div>`;
-      cat.problems.forEach((p,j)=> body += problemHTML(p,j,""));
+      body += `<h4>New practice problems <span class="hint">(written for this site; similar in style to past exams but not taken from them. Open the tutor guidance first, attempt the problem yourself, then check the solution.)</span></h4><div class="btn-row"><button type="button" class="show-all">Show all solutions</button><button type="button" class="hide-all">Hide all solutions</button></div>`;
+      cat.problems.forEach((p,j)=> body += problemHTML(p,j,`${key}/${j}`));
       body += `</div>`;
-      div.innerHTML = `<div class="topic-head"><div class="rank">${i+1}</div><div><div class="topic-name">${esc(cat.name)} <span class="trend ${cat.trend}">${trendLabel(cat.trend)}</span></div><div class="topic-years">Seen in: ${esc(cat.years.join(", "))}</div></div><div class="bar"><span style="width:${cat.prob}%"></span></div><div class="pct">${cat.prob}%</div></div>` + body;
-      div.querySelector(".topic-head").onclick = ()=>{ div.classList.toggle("open"); if(div.classList.contains("open") && !div.dataset.rendered){ renderMath(div); div.dataset.rendered="1"; } };
+      div.innerHTML = `<div class="topic-head"><div class="rank">${i+1}</div><div><div class="topic-name">${esc(cat.name)} <span class="trend ${cat.trend}">${trendLabel(cat.trend)}</span> <button class="linkbtn" type="button" title="Copy a direct link to this topic">link</button></div><div class="topic-years">Seen in: ${esc(cat.years.join(", "))}</div></div><div class="bar"><span style="width:${cat.prob}%"></span></div><div class="pct">${cat.prob}%</div></div>` + body;
+      div.querySelector(".topic-head").onclick = (ev)=>{ if(ev.target.closest(".linkbtn")) return; div.classList.toggle("open"); if(div.classList.contains("open")){ state.topic = cat.id; if(!div.dataset.rendered){ renderMath(div); div.dataset.rendered="1"; } } else if(state.topic===cat.id){ state.topic=null; } writeHash(); };
+      div.querySelector(".linkbtn").onclick = (ev)=>{ ev.stopPropagation(); state.topic = cat.id; writeHash(); copyLink(`#${key}`, ev.target); };
       div.querySelector(".show-all").onclick = ()=> div.querySelectorAll(".part").forEach(p=>{p.classList.add("show"); p.querySelector("button.reveal").textContent="Hide solution";});
       div.querySelector(".hide-all").onclick = ()=> div.querySelectorAll(".part").forEach(p=>{p.classList.remove("show"); p.querySelector("button.reveal").textContent="Show solution";});
       wireReveals(div);
@@ -87,10 +139,10 @@
     // mock exam: first problem from each of the top N categories
     const N = e.mockCount || 4;
     const mock = $("mock"); mock.innerHTML = `<p class="meta">${esc(c.code)} ${esc(e.name)} — mock exam, ${N} problems. Suggested time: ${e.mockTime||"as in the real exam"}.</p>`;
-    cats.slice(0,N).forEach((cat,i)=>{ const p = cat.problems[0]; mock.innerHTML += `<div><div class="meta" style="margin-top:14px">Topic: ${esc(cat.name)}</div>${problemHTML(p,i,"")}</div>`; });
+    cats.slice(0,N).forEach((cat,i)=>{ const p = cat.problems[0]; mock.innerHTML += `<div><div class="meta" style="margin-top:14px">Topic: ${esc(cat.name)}</div>${problemHTML(p,i,`${state.course}/${state.exam}/${cat.id}/0`)}</div>`; });
     wireReveals(mock); mock.dataset.rendered="";
     setView(state.view);
-    $("content").scrollIntoView({behavior:"smooth",block:"start"});
+    if(scroll) $("content").scrollIntoView({behavior:"smooth",block:"start"});
   }
 
   function setView(v){
@@ -102,4 +154,5 @@
   document.querySelectorAll(".view-toggle button").forEach(b=> b.onclick=()=>setView(b.dataset.view));
 
   renderCourses();
+  const r = readHash(); if(r) applyRoute(r);
 })();

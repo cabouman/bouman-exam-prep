@@ -6,7 +6,7 @@
 <title>Bouman Exam Trainer</title>
 <meta name="description" content="Exam-pattern analysis, ranked topics, practice problems with solutions, and review guides for Purdue ECE 60141, ECE 63700, and ECE 60146.">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header class="band">
@@ -37,7 +37,7 @@
         <h2 id="exam-title"></h2>
         <p id="exam-meta" class="meta"></p>
       </div>
-      <div class="view-toggle" role="tablist">
+      <div class="view-toggle" role="tablist"><button id="exam-link" class="linkbtn" type="button" title="Copy a direct link to this exam">copy link</button>
         <button id="view-topics" class="active" data-view="topics">Topics &amp; practice</button>
         <button id="view-mock" data-view="mock">Mock exam</button>
       </div>
@@ -45,7 +45,7 @@
     <p id="exam-notes" class="notes"></p>
 
     <div id="topics-view">
-      <h3 class="section-title">Topic likelihood ranking <span class="hint">(most to least likely; click a topic to expand)</span></h3>
+      <h3 class="section-title">Topic likelihood ranking <span class="hint">(most to least likely; click a topic to expand; use "link" to copy a direct URL to a topic)</span></h3>
       <div id="ranking"></div>
     </div>
 
@@ -62,16 +62,19 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="data/ece641_midterm.js?v=5"></script>
-<script src="data/ece641_final.js?v=5"></script>
-<script src="data/ece637_exam1.js?v=5"></script>
-<script src="data/ece637_exam2.js?v=5"></script>
-<script src="data/ece637_final.js?v=5"></script>
-<script src="data/ece60146_mt1.js?v=5"></script>
-<script src="data/ece60146_mt2.js?v=5"></script>
-<script src="data/concepts_ece641.js?v=5"></script>
-<script src="data/concepts_ece637.js?v=5"></script>
-<script src="data/concepts_ece60146.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="data/ece641_midterm.js?v=7"></script>
+<script src="data/ece641_final.js?v=7"></script>
+<script src="data/ece637_exam1.js?v=7"></script>
+<script src="data/ece637_exam2.js?v=7"></script>
+<script src="data/ece637_final.js?v=7"></script>
+<script src="data/ece60146_mt1.js?v=7"></script>
+<script src="data/ece60146_mt2.js?v=7"></script>
+<script src="data/concepts_ece641.js?v=7"></script>
+<script src="data/concepts_ece637.js?v=7"></script>
+<script src="data/concepts_ece60146.js?v=7"></script>
+<script src="data/approach_ece641.js?v=7"></script>
+<script src="data/approach_ece637.js?v=7"></script>
+<script src="data/approach_ece60146.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
